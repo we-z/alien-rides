@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # Zendesk API
 ZENDESK_SUBDOMAIN = os.environ.get('ZENDESK_SUBDOMAIN')
 ZENDESK_USER = os.environ.get('ZENDESK_USER')
-ZENDESK_TOKEN = os.environ.get('ZENDESK_TOKEN')
+ZENDESK_TOKEN = "customer-support"
 
 # Slack API
 SLACK_TOKEN = os.environ.get('SLACK_TOKEN')
