@@ -1,43 +1,56 @@
+"""
+Create a slack bot that uses the Zendesk api to retrieve the status of all tickets. If a ticket status is solved, use the slack api to delete the message sent by the zendesk app in a Channel with the ticket id.
+"""
+
+import os
+import time
+import json
 import requests
+import logging
+import slack
+from slack.errors import SlackApiError
+from zendesk import Zendesk
 
-# Replace SLACK_API_TOKEN and ZENDESK_API_TOKEN with your own API tokens
-SLACK_API_TOKEN = "xoxb-your-slack-api-token"
-ZENDESK_API_TOKEN = "your-zendesk-api-token"
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Set up a Slack event subscription for the 'message.deleted' event
-SLACK_EVENT_SUBSCRIPTION_URL = "https://slack.com/api/events.subscribe"
-payload = {
-    "token": SLACK_API_TOKEN,
-    "type": "message.deleted",
-    "request_url": "http://your-server.com/slack/events",
-}
-headers = {
-    "Content-Type": "application/json",
-}
-response = requests.post(SLACK_EVENT_SUBSCRIPTION_URL, json=payload, headers=headers)
-if response.status_code != 200:
-    raise Exception("Failed to set up event subscription")
+# Zendesk API
+ZENDESK_SUBDOMAIN = os.environ.get('ZENDESK_SUBDOMAIN')
+ZENDESK_USER = os.environ.get('ZENDESK_USER')
+ZENDESK_TOKEN = os.environ.get('ZENDESK_TOKEN')
 
-# This function will be called whenever a message is deleted in a Slack channel
-def handle_message_deleted_event(event_data):
-    # Get the ticket ID from the message
-    ticket_id = event_data["previous_message"]["text"]
+# Slack API
+SLACK_TOKEN = os.environ.get('SLACK_TOKEN')
+SLACK_CHANNEL = os.environ.get('SLACK_CHANNEL')
 
-    # Use the Zendesk API to retrieve the status of the ticket
-    ZENDESK_API_URL = "https://your-zendesk-subdomain.zendesk.com/api/v2/tickets/{}.json"
-    url = ZENDESK_API_URL.format(ticket_id)
-    headers = {
-        "Authorization": "Bearer {}".format(ZENDESK_API_TOKEN),
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        raise Exception("Failed to retrieve ticket status")
-    ticket_status = response.json()["ticket"]["status"]
+# Zendesk API
+zendesk = Zendesk(ZENDESK_SUBDOMAIN, ZENDESK_USER, ZENDESK_TOKEN)
 
-    # If the status of the ticket is "solved", delete the message in the Slack channel
-    if ticket_status == "solved":
-        # Use the Slack API to delete the message
-        SLACK_API_URL = "https://slack.com/api/chat.delete"
-        payload = {
-            "token": SLACK_API_TOKEN,
-            "channel": event
+# Slack API
+client = slack.WebClient(token=SLACK_TOKEN)
+
+while True:
+    # Get all tickets
+    tickets = zendesk.tickets_list()
+
+    # Get all messages in the channel
+    messages = client.conversations_history(channel=SLACK_CHANNEL)
+
+    # Iterate through all tickets
+    for ticket in tickets:
+        # Get the ticket id
+        ticket_id = ticket['id']
+        # Get the ticket status
+        ticket_status = ticket['status']
+        # If the ticket status is solved
+        if ticket_status == 'solved':
+            # Iterate through all messages in the channel
+            for message in messages['messages']:
+                # Get the message text
+                message_text = message['text']
+                # If the message text contains the ticket id
+                if str(ticket_id) in message_text:
+                    # Get the message ts
+                    message_ts = message['ts']
+                    # Delete the message
+                    client.chat_delete(channel=SLACK_CHANNEL, ts=message_ts)
