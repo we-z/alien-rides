@@ -1,5 +1,5 @@
 """
-Create a slack bot that uses the Zendesk api to retrieve the status of all tickets. If a ticket status is solved, use the slack api to delete the message sent by the zendesk app in a Channel with the ticket id.
+A slack bot that uses the Zendesk api to retrieve the status of all tickets. If a ticket status is solved, use the slack api to delete the message sent by the zendesk app in a Channel with the ticket id.
 """
 
 import os
